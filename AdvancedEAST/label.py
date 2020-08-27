@@ -54,7 +54,14 @@ def shrink(xy_list, ratio=cfg.shrink_ratio):
     long_edge = int(np.argmax(np.sum(np.reshape(dis, (2, 2)), axis=0)))
     short_edge = 1 - long_edge
     # cal r length array
-    r = [np.minimum(dis[i], dis[(i + 1) % 4]) for i in range(4)]
+
+    # r = [np.minimum(dis[i], dis[(i + 1) % 4]) for i in range(4)]
+
+    # https: // github.com / huoyijie / AdvancedEAST / issues / 54
+    r = [np.minimum(dis[3], dis[(3 + 1) % 4])]
+    for i in range(3):
+        r.append(np.minimum(dis[i], dis[(i + 1) % 4]))
+
     # cal theta array
     diff_abs = np.abs(diff)
     diff_abs[:, 0] += cfg.epsilon
@@ -134,6 +141,10 @@ def process_label(data_dir=cfg.data_dir):
                                                 shrink_xy_list, p_min, p_max):
                             gt[i, j, 0] = 1
                             line_width, line_color = 1, 'red'
+                            # ith = point_inside_of_nth_quad(px, py,
+                            #                                shrink_xy_list,
+                            #                                shrink_1,
+                            #                                long_edge)
                             ith = point_inside_of_nth_quad(px, py,
                                                            xy_list,
                                                            shrink_1,

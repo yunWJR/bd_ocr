@@ -2,14 +2,14 @@ import argparse
 
 import numpy as np
 from PIL import Image, ImageDraw
-from keras.preprocessing import image
 from keras.applications.vgg16 import preprocess_input
+from keras.preprocessing import image
 
 import cfg
 from label import point_inside_of_quad
 from network import East
-from preprocess import resize_image
 from nms import nms
+from preprocess import resize_image
 
 
 def sigmoid(x):
@@ -27,7 +27,11 @@ def cut_text_line(geo, scale_ratio_w, scale_ratio_h, im_array, img_path, s):
     for m in range(min_xy[1], max_xy[1]):
         for n in range(min_xy[0], max_xy[0]):
             if not point_inside_of_quad(n, m, geo, p_min, p_max):
-                sub_im_arr[m - min_xy[1], n - min_xy[0], :] = 255
+                nm = n - min_xy[0]
+                if nm >= sub_im_arr[m - min_xy[1]].shape[0]:
+                    nm = sub_im_arr[m - min_xy[1]].shape[0] - 1
+
+                sub_im_arr[m - min_xy[1], nm, :] = 255
     sub_im = image.array_to_img(sub_im_arr, scale=False)
     sub_im.save(img_path + '_subim%d.jpg' % s)
 
@@ -74,7 +78,7 @@ def predict(east_detect, img_path, pixel_threshold, quiet=False):
         txt_items = []
         for score, geo, s in zip(quad_scores, quad_after_nms,
                                  range(len(quad_scores))):
-            if np.amin(score) > 0:
+            if np.amin(score) >= 0:
                 quad_draw.line([tuple(geo[0]),
                                 tuple(geo[1]),
                                 tuple(geo[2]),
@@ -114,7 +118,7 @@ def predict_txt(east_detect, img_path, txt_path, pixel_threshold, quiet=False):
 
     txt_items = []
     for score, geo in zip(quad_scores, quad_after_nms):
-        if np.amin(score) > 0:
+        if np.amin(score) >= 0:
             rescaled_geo = geo / [scale_ratio_w, scale_ratio_h]
             rescaled_geo_list = np.reshape(rescaled_geo, (8,)).tolist()
             txt_item = ','.join(map(str, rescaled_geo_list))
@@ -140,7 +144,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     img_path = args.path
-    img_path = '/Users/yun/Downloads/ocr.jpg'
+    img_path = '/Users/yun/Downloads/TEST/ocr.jpg'
     threshold = float(args.threshold)
     print(img_path, threshold)
 

@@ -52,7 +52,7 @@ def text_detect(east_detect, img_path, pixel_threshold=0.9):
 
     bboxes = []
     for score, geo in zip(quad_scores, quad_after_nms):
-        if np.amin(score) > 0:
+        if np.amin(score) >= 0:
             rescaled_geo = geo / [scale_ratio_w, scale_ratio_h]
             rescaled_geo_list = np.reshape(rescaled_geo, (8,)).tolist()
             bboxes.append(rescaled_geo_list)
@@ -67,7 +67,7 @@ def text_detect(east_detect, img_path, pixel_threshold=0.9):
 if __name__ == '__main__':
 
     # 图片路径
-    img_path = '/Users/yun/Downloads/ocr.jpg'
+    img_path = '/Volumes/mac_data/2-pj/6-bdzg/bdzg_ocr_test/imgs/1-171204211638775-none.jpg'
     # img_path = 'demo/012.png'
 
     # 加载模型

@@ -66,8 +66,8 @@ saved_model_file_path = 'saved_model/east_model_%s.h5' % train_task_id
 saved_model_weights_file_path = 'saved_model/east_model_weights_%s.h5'\
                                 % train_task_id
 
-pixel_threshold = 0.9
+pixel_threshold = 0.7
 side_vertex_pixel_threshold = 0.9
-trunc_threshold = 0.1
-predict_cut_text_line = False
+trunc_threshold = 0.5
+predict_cut_text_line = True
 predict_write2txt = True
