@@ -58,6 +58,7 @@ def shrink(xy_list, ratio=cfg.shrink_ratio):
     # r = [np.minimum(dis[i], dis[(i + 1) % 4]) for i in range(4)]
 
     # https: // github.com / huoyijie / AdvancedEAST / issues / 54
+    # https://blog.csdn.net/linchuhai/article/details/84677249 todo
     r = [np.minimum(dis[3], dis[(3 + 1) % 4])]
     for i in range(3):
         r.append(np.minimum(dis[i], dis[(i + 1) % 4]))

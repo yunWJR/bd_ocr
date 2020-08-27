@@ -1,7 +1,13 @@
 import argparse
+import os
+from glob import glob
+from os import makedirs
+from os.path import splitext, basename, isdir
+from shutil import copyfile
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ExifTags
+from PIL import ImageDraw
 from keras.applications.vgg16 import preprocess_input
 from keras.preprocessing import image
 
@@ -11,6 +17,8 @@ from network import East
 from nms import nms
 from preprocess import resize_image
 
+
+# from det.LicensePlateOcCrnnDet import LicensePlateOcrCrnnDet
 
 def sigmoid(x):
     """`y = 1 / (1 + exp(-x))`"""
@@ -36,8 +44,30 @@ def cut_text_line(geo, scale_ratio_w, scale_ratio_h, im_array, img_path, s):
     sub_im.save(img_path + '_subim%d.jpg' % s)
 
 
-def predict(east_detect, img_path, pixel_threshold, quiet=False):
-    img = image.load_img(img_path)
+def predict(east_detect, img_path, pixel_threshold, quiet=False, Orientation=False, fix=False):
+    # img = image.load_img(img_path)
+    img = Image.open(img_path)
+
+    # 旋转
+    if Orientation:
+        try:
+            oi = -1
+
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    oi = orientation
+                    break
+            if oi >= 0:
+                exif = dict(img._getexif().items())
+                if exif[oi] == 3:
+                    img = img.rotate(180, expand=True)
+                elif exif[oi] == 6:
+                    img = img.rotate(270, expand=True)
+                elif exif[oi] == 8:
+                    img = img.rotate(90, expand=True)
+        except:
+            pass
+
     d_wight, d_height = resize_image(img, cfg.max_predict_img_size)
     img = img.resize((d_wight, d_height), Image.NEAREST).convert('RGB')
     img = image.img_to_array(img)
@@ -49,7 +79,7 @@ def predict(east_detect, img_path, pixel_threshold, quiet=False):
     y[:, :, :3] = sigmoid(y[:, :, :3])
     cond = np.greater_equal(y[:, :, 0], pixel_threshold)
     activation_pixels = np.where(cond)
-    quad_scores, quad_after_nms = nms(y, activation_pixels)
+    quad_scores, quad_after_nms = nms(y, activation_pixels, fix=fix)
     with Image.open(img_path) as im:
         im_array = image.img_to_array(im.convert('RGB'))
         d_wight, d_height = resize_image(im, cfg.max_predict_img_size)
@@ -76,17 +106,15 @@ def predict(east_detect, img_path, pixel_threshold, quiet=False):
         im.save(img_path + '_act.jpg')
         quad_draw = ImageDraw.Draw(quad_im)
         txt_items = []
-        for score, geo, s in zip(quad_scores, quad_after_nms,
-                                 range(len(quad_scores))):
-            if np.amin(score) >= 0:
+        for score, geo, s in zip(quad_scores, quad_after_nms, range(len(quad_scores))):
+            if np.amin(score) > 0 or fix:
                 quad_draw.line([tuple(geo[0]),
                                 tuple(geo[1]),
                                 tuple(geo[2]),
                                 tuple(geo[3]),
                                 tuple(geo[0])], width=2, fill='red')
                 if cfg.predict_cut_text_line:
-                    cut_text_line(geo, scale_ratio_w, scale_ratio_h, im_array,
-                                  img_path, s)
+                    cut_text_line(geo, scale_ratio_w, scale_ratio_h, im_array, img_path, s)
                 rescaled_geo = geo / [scale_ratio_w, scale_ratio_h]
                 rescaled_geo_list = np.reshape(rescaled_geo, (8,)).tolist()
                 txt_item = ','.join(map(str, rescaled_geo_list))
@@ -141,14 +169,44 @@ def parse_args():
     return parser.parse_args()
 
 
+def image_files_from_folder(folder, upper=True):
+    extensions = ['jpg', 'jpeg', 'png']
+    img_files = []
+    for ext in extensions:
+        img_files += glob('%s/*.%s' % (folder, ext))
+        if upper:
+            img_files += glob('%s/*.%s' % (folder, ext.upper()))
+    return img_files
+
+
 if __name__ == '__main__':
     args = parse_args()
-    img_path = args.path
-    img_path = '/Volumes/mac_data/2-pj/6-bdzg/bdzg_ocr_test/imgs/2-171204211649212-none.jpg'
     threshold = float(args.threshold)
-    print(img_path, threshold)
 
     east = East()
     east_detect = east.east_network()
     east_detect.load_weights(cfg.saved_model_weights_file_path)
-    predict(east_detect, img_path, threshold)
+
+    input_dir = '/Volumes/mac_data/2-pj/6-bdzg/bdzg_ocr_test/test'
+    # input_dir = '/Users/yun/Downloads/TEST'
+    output_dir = input_dir + "_output"
+
+    if not isdir(output_dir):
+        makedirs(output_dir)
+
+    imgs_paths = image_files_from_folder(input_dir)
+    imgs_paths.sort()
+
+    for i, img_path in enumerate(imgs_paths):
+        fname = basename(splitext(img_path)[0])
+
+        outfpath = '%s/%s.jpg' % (output_dir, fname)
+
+        if os.path.isfile(outfpath):
+            print('%d:%s skit' % (i, fname))
+            # continue
+
+        copyfile(img_path, outfpath)
+
+        predict(east_detect, outfpath, threshold, fix=True)
+        print('%d:%s done' % (i, fname))
